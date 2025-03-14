@@ -40,14 +40,18 @@ class ConfidenceModel(nn.Module):
         x = self.fc3(x)
         return x
 
-# Load trained model
+# Load trained model using os module
 try:
     model = ConfidenceModel()
-    model.load_state_dict(torch.load("confidence_model.pth", map_location=torch.device('cpu')))
+    # Get the directory where app.py is located
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    # Construct the full path to the model file
+    model_path = os.path.join(base_dir, "confidence_model.pth")
+    model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
     model.eval()
-    logger.info("Model loaded successfully.")
+    logger.info("Model loaded successfully from: %s", model_path)
 except Exception as e:
-    logger.error(f"Error loading model: {e}")
+    logger.error(f"Error loading model from {model_path}: {e}")
     exit()
 
 # Feature extraction functions
@@ -111,14 +115,14 @@ def confidence_status():
     data = request.get_json()
     if not data or 'image' not in data:
         response = {"Name": "Unknown", "Time": time.strftime("%H:%M:%S"), "status": "Error"}
-        print(json.dumps(response))  # Print JSON response in terminal
+        print(json.dumps(response))
         return json.dumps(response), 400
 
     name = data.get('name', 'Unknown')
     frame = process_image(data['image'])
     if frame is None:
         response = {"Name": name, "Time": time.strftime("%H:%M:%S"), "status": "Error"}
-        print(json.dumps(response))  # Print JSON response in terminal
+        print(json.dumps(response))
         return json.dumps(response), 500
 
     eye_angle = extract_eye_angle(frame)
@@ -136,10 +140,10 @@ def confidence_status():
 
     response = {
         "Name": name,
-        "Time": time.strftime("%H:%M:%S"),  # Format as HH:MM:SS
+        "Time": time.strftime("%H:%M:%S"),
         "status": status
     }
-    print(json.dumps(response))  # Print JSON response in terminal
+    print(json.dumps(response))
     return json.dumps(response), 200, {"Content-Type": "application/json"}
 
 @app.route('/')
@@ -150,6 +154,6 @@ if __name__ == "__main__":
     try:
         logger.info("Starting Flask API...")
         port = int(os.environ.get("PORT", 5000))  # Use Render's PORT, fallback to 5000
-        app.run(host="0.0.0.0", port=port, debug=False, threaded=True)  # Debug off for production
+        app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
     finally:
         logger.info("Shutting down...")
