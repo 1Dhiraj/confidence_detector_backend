@@ -7,6 +7,7 @@ import mediapipe as mp
 import logging
 from flask_cors import CORS
 import base64
+import os
 from io import BytesIO
 from PIL import Image
 import time
@@ -148,6 +149,7 @@ def index():
 if __name__ == "__main__":
     try:
         logger.info("Starting Flask API...")
-        app.run(host="0.0.0.0", port=5000, debug=True, threaded=True)
+        port = int(os.environ.get("PORT", 5000))  # Use Render's PORT, fallback to 5000
+        app.run(host="0.0.0.0", port=port, debug=False, threaded=True)  # Debug off for production
     finally:
         logger.info("Shutting down...")
