@@ -1,16 +1,8 @@
-<<<<<<< HEAD
 flask
 opencv-python-headless  # Use headless version for servers
 torch
 numpy
 mediapipe
 flask-cors
-=======
-flask
-opencv-python-headless  # Use headless version for servers
-torch
-numpy
-mediapipe
-flask-cors
->>>>>>> 172fe6838939813d57fe83418f2b07bcc2995187
+cors
 pillow
