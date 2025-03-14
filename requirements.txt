@@ -1,0 +1,7 @@
+flask
+opencv-python-headless  # Use headless version for servers
+torch
+numpy
+mediapipe
+flask-cors
+pillow
