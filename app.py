@@ -11,15 +11,13 @@ import os
 from io import BytesIO
 from PIL import Image
 import time
-from datetime import datetime
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-# Configure CORS to allow requests from your frontend domain
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app)
 
 # Initialize MediaPipe
 mp_face_mesh = mp.solutions.face_mesh
@@ -53,9 +51,8 @@ try:
     model.eval()
     logger.info("Model loaded successfully from: %s", model_path)
 except Exception as e:
-    logger.error(f"Error loading model from {model_path if 'model_path' in locals() else 'undefined path'}: {e}")
-    # Don't exit - let the app continue to run so other endpoints work even if model fails
-    # Instead, we'll handle model failures gracefully in the endpoints
+    logger.error(f"Error loading model from {model_path}: {e}")
+    exit()
 
 # Feature extraction functions
 def extract_eye_angle(image):
@@ -102,9 +99,7 @@ def extract_posture_features(image):
 # Process image from frontend
 def process_image(image_data):
     try:
-        # Handle both formats: with or without data:image/jpeg;base64, prefix
-        if ',' in image_data:
-            image_data = image_data.split(',')[1]
+        image_data = image_data.split(',')[1]
         image_bytes = base64.b64decode(image_data)
         image = Image.open(BytesIO(image_bytes))
         frame = np.array(image)
@@ -115,68 +110,45 @@ def process_image(image_data):
         return None
 
 # Confidence status endpoint
-@app.route('/confidence_status', methods=['POST', 'OPTIONS'])
+@app.route('/confidence_status', methods=['POST'])
 def confidence_status():
-    # Handle preflight CORS requests
-    if request.method == 'OPTIONS':
-        return Response(status=200)
-    
-    try:
-        data = request.get_json()
-        if not data or 'image' not in data:
-            logger.error("Missing image data in request")
-            response = {"Name": "Unknown", "Time": datetime.now().strftime("%H:%M:%S"), "status": "Error"}
-            return json.dumps(response), 400, {"Content-Type": "application/json"}
+    data = request.get_json()
+    if not data or 'image' not in data:
+        response = {"Name": "Unknown", "Time": time.strftime("%H:%M:%S"), "status": "Error"}
+        print(json.dumps(response))
+        return json.dumps(response), 400
 
-        name = data.get('name', 'Unknown')
-        frame = process_image(data['image'])
-        
-        if frame is None:
-            logger.error("Failed to process image")
-            response = {"Name": name, "Time": datetime.now().strftime("%H:%M:%S"), "status": "Error"}
-            return json.dumps(response), 500, {"Content-Type": "application/json"}
+    name = data.get('name', 'Unknown')
+    frame = process_image(data['image'])
+    if frame is None:
+        response = {"Name": name, "Time": time.strftime("%H:%M:%S"), "status": "Error"}
+        print(json.dumps(response))
+        return json.dumps(response), 500
 
-        # Use datetime for consistent time formatting
-        current_time = datetime.now().strftime("%H:%M:%S")
-        
-        eye_angle = extract_eye_angle(frame)
-        posture_features = extract_posture_features(frame)
+    eye_angle = extract_eye_angle(frame)
+    posture_features = extract_posture_features(frame)
 
-        if eye_angle is not None and posture_features is not None:
-            try:
-                features = np.hstack((posture_features, [eye_angle]))
-                features_tensor = torch.tensor([features], dtype=torch.float32)
-                with torch.no_grad():
-                    output = model(features_tensor)
-                    prediction = torch.argmax(output).item()
-                    status = "Confident" if prediction == 0 else "Unconfident"
-            except Exception as e:
-                logger.error(f"Error during prediction: {e}")
-                status = "Unknown"
-        else:
-            status = "Unknown"
+    if eye_angle is not None and posture_features is not None:
+        features = np.hstack((posture_features, [eye_angle]))
+        features_tensor = torch.tensor([features], dtype=torch.float32)
+        with torch.no_grad():
+            output = model(features_tensor)
+            prediction = torch.argmax(output).item()
+            status = "Confident" if prediction == 0 else "Unconfident"
+    else:
+        status = "Unknown"
 
-        response = {
-            "Name": name,
-            "Time": current_time,
-            "status": status
-        }
-        
-        # Debug log to verify what's being sent
-        logger.debug(f"Sending response: {response}")
-        
-        return json.dumps(response), 200, {"Content-Type": "application/json"}
-    
-    except Exception as e:
-        logger.error(f"Unhandled exception in confidence_status: {e}")
-        response = {"Name": data.get('name', 'Unknown') if 'data' in locals() else "Unknown", 
-                   "Time": datetime.now().strftime("%H:%M:%S"), 
-                   "status": "Error"}
-        return json.dumps(response), 500, {"Content-Type": "application/json"}
+    response = {
+        "Name": name,
+        "Time": time.strftime("%H:%M:%S"),
+        "status": status
+    }
+    print(json.dumps(response))
+    return json.dumps(response), 200, {"Content-Type": "application/json"}
 
 @app.route('/')
 def index():
-    return "Confidence Detection API is running. Server time: " + datetime.now().strftime("%H:%M:%S")
+    return "Confidence Detection API is running."
 
 if __name__ == "__main__":
     try:
